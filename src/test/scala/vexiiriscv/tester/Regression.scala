@@ -1,6 +1,7 @@
 package vexiiriscv.tester
 
 import org.apache.commons.io.FileUtils
+import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
 import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.core.sim._
@@ -22,7 +23,8 @@ class RegressionSingle(compiled : SimCompiled[VexiiRiscv]){
 
   def newTest() = {
     val t = new TestOptions()
-//    t.traceWave = true
+    t.traceWave = true
+    t.traceKonata = true
     t
   }
   val tests = ArrayBuffer[TestOptions]()
@@ -70,12 +72,13 @@ class RegressionSingle(compiled : SimCompiled[VexiiRiscv]){
     val testPath = new File(compiled.simConfig.getTestPath(t.testName.get))
     val passFile = new File(testPath, "PASS")
     val failFile = new File(testPath, "FAIL")
+    FileUtils.deleteQuietly(passFile)
+    FileUtils.deleteQuietly(failFile)
     val testName = t.testName.get
-    if(!passFile.exists()){
+    //if(!passFile.exists()){
       val stdoutHost = Console.out
       val job = new AsyncJob(toStdout = false, logsPath = testPath)({
         t.test(compiled)
-        FileUtils.deleteQuietly(failFile)
         val bf = new BufferedWriter(new FileWriter(passFile))
         bf.flush()
         bf.close()
@@ -89,12 +92,12 @@ class RegressionSingle(compiled : SimCompiled[VexiiRiscv]){
         }
       }
       jobs += job
-    }
+    //}
   }
   jobs.foreach(_.join())
 }
 
-object RegressionSingle extends App{
+object RegressionSingle extends App {
   def test(name : String, plugins : => Seq[Hostable]): Unit = {
     val simConfig = SpinalSimConfig()
     simConfig.withFstWave
@@ -106,11 +109,18 @@ object RegressionSingle extends App{
     println("*" * 80)
     val fails = regression.jobs.filter(_.failed)
     if (fails.size == 0) {
-      println("PASS"); return
+      Console.out.synchronized {
+        println("PASS");
+        return
+      }
     }
-    println(s"FAILED ${fails.size}/${regression.jobs.size}")
+    Console.out.synchronized {
+      println(s"FAILED ${fails.size}/${regression.jobs.size}")
+    }
     for (fail <- fails) {
-      println("- " + fail.logsFile.getAbsolutePath)
+      Console.out.synchronized {
+        println("- " + fail.logsFile.getAbsolutePath)
+      }
     }
     Thread.sleep(10)
     throw new Exception()
@@ -150,7 +160,7 @@ class Regression extends MultithreadedFunSuite(sys.env.getOrElse("VEXIIRISCV_REG
     }
   }
 
-  val md = "--with-mul --with-div"
+  val md = "--with-mul --with-div --with-iterative-shift"
   for(issues <- 1 to 2; rf <- List("", "--regfile-async"); bpf <- List(0,1,2,3,100)){
     val base = s"--decoders $issues --lanes $issues $md --allow-bypass-from $bpf"
     addTest(s"$base $rf")
