@@ -31,6 +31,15 @@ class RegressionSingle(compiled : SimCompiled[VexiiRiscv]){
 
   val nsf = new File("ext/NaxSoftware")
 
+  val regulars = List("dhrystone", "coremark")
+  for (name <- regulars) {
+    val t = newTest()
+    t.elfs += new File(nsf, s"baremetal/$name/build/rv32ima/$name.elf")
+    t.failAfter = Some(300000000)
+    t.testName = Some(name)
+    tests += t
+  }
+
   val rejectedTests = mutable.LinkedHashSet("rv32ui-p-simple", "rv32ui-p-fence_i", "rv64ui-p-simple", "rv64ui-p-fence_i")
 
   //rvi tests
@@ -53,16 +62,6 @@ class RegressionSingle(compiled : SimCompiled[VexiiRiscv]){
     t.elfs += elf
     t.failAfter = Some(10000000)
     t.testName = Some("riscv-arch-test/I/" + elf.getName.replace(".elf",""))
-    tests += t
-  }
-
-
-  val regulars = List("dhrystone", "coremark")
-  for(name <- regulars){
-    val t = newTest()
-    t.elfs += new File(nsf, s"baremetal/$name/build/rv32ima/$name.elf")
-    t.failAfter = Some(300000000)
-    t.testName = Some(name)
     tests += t
   }
 
